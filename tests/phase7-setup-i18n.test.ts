@@ -62,7 +62,7 @@ function rows(table: string, columns: string, where: string): any[] {
 
 async function run(): Promise<void> {
   console.log(`Phase 7 setup/demo locale coverage: ${languages.length} registered locales`);
-  assert.deepEqual([...englishIdenticalSeeds].sort(), ['fil'], 'Filipino is the only non-English locale on the documented English-identical seed allowlist');
+  assert.deepEqual([...englishIdenticalSeeds].sort(), ['ar', 'fil'], 'Filipino and Arabic are non-English locales on the documented English-identical seed allowlist');
 
   const translators = new Map<string, (key: string, values?: Record<string, unknown>) => string>();
   for (const language of languages) {

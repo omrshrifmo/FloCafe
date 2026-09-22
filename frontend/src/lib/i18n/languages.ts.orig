@@ -106,13 +106,6 @@ export const LANGUAGES = {
     selectable: true,
     load: () => import('./messages/id.json'),
   },
-  ar: {
-    locale: 'ar-EG',
-    nativeName: 'العربية (مصر)',
-    direction: 'rtl',
-    selectable: true,
-    load: () => import('./messages/ar.json'),
-  },
 } as const satisfies Record<string, LanguageConfig>;
 
 export type Language = keyof typeof LANGUAGES;
