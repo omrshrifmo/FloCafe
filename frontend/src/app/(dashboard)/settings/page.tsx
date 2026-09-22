@@ -393,6 +393,22 @@ export default function SettingsPage() {
     router.replace(query ? `/settings?${query}` : '/settings');
   };
 
+  const handleSettingsNavClick = (value: string) => {
+    if (value === 'plugins') {
+      router.push('/settings/plugins');
+      return;
+    }
+    if (value === 'language') {
+      router.push('/settings/language');
+      return;
+    }
+    if (value === 'branding') {
+      router.push('/settings/branding');
+      return;
+    }
+    handleSettingsTabChange(value);
+  };
+
   // Unified PIN gate: 'set' opens the set/change-PIN dialog; 'backup'/'backup-custom'/
   // 'import'/'restore' open a verify prompt and, on success, run the pending action.
   const [pinGate, setPinGate] = useState<PinGate>(() => searchParams?.get('action') === 'master-pin' ? { mode: 'set' } : null);
@@ -2870,6 +2886,9 @@ export default function SettingsPage() {
             <SettingsNavItem label={t('account')} value="account" active={activeTab} onClick={handleSettingsTabChange} attention={cloudDeletionNeedsAction || (cloudAccountAvailable && Boolean(cloudAccount?.email && !cloudAccount?.verified))} />
             <SettingsNavItem label={t('privacy')} value="privacy" active={activeTab} onClick={handleSettingsTabChange} />
             <SettingsNavItem label={t('tabUpdates')} value="updates" active={activeTab} onClick={handleSettingsTabChange} />
+            <SettingsNavItem label="Language / اللغة" value="language" active={activeTab} onClick={handleSettingsNavClick} />
+            <SettingsNavItem label="Branding" value="branding" active={activeTab} onClick={handleSettingsNavClick} />
+            <SettingsNavItem label="Plugins" value="plugins" active={activeTab} onClick={handleSettingsNavClick} />
             <SettingsNavItem label={t('tabAbout')} value="about" active={activeTab} onClick={handleSettingsTabChange} />
 
           </nav>

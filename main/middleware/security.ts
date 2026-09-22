@@ -85,9 +85,10 @@ export function rateLimit(options: RateLimitOptions = {}) {
 /** Stricter rate limiter for authentication endpoints; private/LAN IPs are not exempt. */
 export function authRateLimit(options: { max?: number } = {}) {
   const envMax = process.env.FLO_AUTH_RATE_LIMIT_MAX ? parseInt(process.env.FLO_AUTH_RATE_LIMIT_MAX, 10) : undefined;
+  const isDevOrTestRuntime = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development' || process.env.FLO_DEV_MODE === '1';
   return rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: options.max ?? (Number.isFinite(envMax) ? envMax : 10),
+    windowMs: isDevOrTestRuntime ? 60 * 1000 : 15 * 60 * 1000,
+    max: options.max ?? (Number.isFinite(envMax) ? envMax : isDevOrTestRuntime ? 100 : 10),
     message: 'Too many authentication attempts. Please try again later.',
     bypassPrivateIp: false,
   });

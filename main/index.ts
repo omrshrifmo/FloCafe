@@ -50,6 +50,7 @@ import {
 import { setupWindowLoadRetry } from './window-load-retry';
 import { registerUsbDevicePermissions } from './usb-device-permissions';
 import { probeBackendHealth } from './backend-health';
+import { pluginsService } from './services/PluginsService';
 import {
   createRelaunchAttemptGuard,
   createRelaunchGate,
@@ -1178,6 +1179,10 @@ async function initialize(): Promise<void> {
 
     console.log('[Flo] Initializing database...');
     initDatabase();
+    if (isShutdownRequested()) return;
+
+    console.log('[Flo] Initializing plugin registry...');
+    await pluginsService.initialize();
     if (isShutdownRequested()) return;
 
     console.log('[Flo] Starting local server...');

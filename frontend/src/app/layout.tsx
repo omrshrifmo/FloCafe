@@ -5,6 +5,7 @@ import MenuActionHandler from "@/components/layout/MenuActionHandler";
 import AuthGuard from "@/components/layout/AuthGuard";
 import { HtmlLangSync } from "@/components/layout/HtmlLangSync";
 import { ThemeSync } from "@/components/layout/ThemeSync";
+import { BrandingSync } from "@/components/layout/BrandingSync";
 import { NumberInputWheelGuard } from "@/components/layout/NumberInputWheelGuard";
 import { DirectionalToaster } from "@/components/layout/DirectionalToaster";
 import DesktopDragSurface from "@/components/layout/DesktopDragSurface";
@@ -79,6 +80,7 @@ export default function RootLayout({
           <MenuActionHandler />
           <HtmlLangSync />
           <ThemeSync />
+          <BrandingSync />
           <NumberInputWheelGuard />
           <AuthGuard>{children}</AuthGuard>
           <DirectionalToaster />

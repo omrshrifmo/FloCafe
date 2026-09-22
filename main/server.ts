@@ -198,6 +198,9 @@ export function startServer(): Promise<void> {
 
     // ── All API routes ─────────────────────────────────────────────────
     registerRoutes(app);
+    void import('./services/PluginsService').then(({ pluginsService }) => {
+      void pluginsService.loadEnabledPlugins(app);
+    });
 
     // ── Serve Next.js static export ────────────────────────────────────
     // Must come AFTER API routes so /api/* is not caught by the SPA fallback.

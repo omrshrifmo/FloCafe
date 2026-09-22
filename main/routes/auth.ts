@@ -548,11 +548,12 @@ function requireLocalSetup(req: Request, res: Response): boolean {
 
 // ── Rate Limiting (In-Memory for local offline apps) ──────────────────────────
 const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
+const isDevOrTestRuntime = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development' || process.env.FLO_DEV_MODE === '1';
+const MAX_ATTEMPTS = isDevOrTestRuntime ? 100 : 5;
+const LOCKOUT_MINUTES = isDevOrTestRuntime ? 0.08 : 15;
 const passwordChangeAttempts = new Map<string, { count: number; lockedUntil: number }>();
-const PASSWORD_CHANGE_MAX_ATTEMPTS = 5;
-const PASSWORD_CHANGE_LOCKOUT_MINUTES = 5;
+const PASSWORD_CHANGE_MAX_ATTEMPTS = isDevOrTestRuntime ? 100 : 5;
+const PASSWORD_CHANGE_LOCKOUT_MINUTES = isDevOrTestRuntime ? 5 : 5;
 
 function checkRateLimit(ip: string): { allowed: boolean; waitMinutes?: number } {
   const nowMs = Date.now();

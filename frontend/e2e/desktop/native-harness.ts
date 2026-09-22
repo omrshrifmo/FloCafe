@@ -5,9 +5,12 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { _electron as electron, chromium, type Browser, type ElectronApplication, type Page } from 'playwright';
 
-const require = createRequire(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
 const repoRoot = path.resolve(__dirname, '../../../');
 const seedScript = path.join(repoRoot, 'tests/native-e2e-fixture.cjs');

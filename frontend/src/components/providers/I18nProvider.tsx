@@ -28,9 +28,11 @@ function resolveInitialLanguage(): Language {
   return 'en';
 }
 
-/** Error handler for IntlProvider suppressing ENVIRONMENT_FALLBACK warnings. */
+/** Error handler for IntlProvider suppressing non-actionable missing-message warnings.
+ * We keep the English fallback bundle as the base for every locale so missing Arabic
+ * keys do not end up as raw message ids or noisy console spam. */
 export function handleI18nError(error: { code?: string; message?: string } | Error) {
-  if ('code' in error && error.code === 'ENVIRONMENT_FALLBACK') return;
+  if ('code' in error && (error.code === 'ENVIRONMENT_FALLBACK' || error.code === 'MISSING_MESSAGE')) return;
   console.error(error);
 }
 

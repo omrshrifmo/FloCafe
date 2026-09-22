@@ -1,10 +1,13 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 import path from "node:path";
 /**
  * NEXT_BUILD_MODE=desktop  →  static export for Electron (FloDesktop)
  * NEXT_BUILD_MODE unset    →  standard Next.js server mode (FloPOS cloud)
  */
 const isDesktop = process.env.NEXT_BUILD_MODE === "desktop";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   // Static export: required for Electron — served via embedded Express,
@@ -30,4 +33,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

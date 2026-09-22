@@ -3,6 +3,25 @@ import { LANGUAGES, type Language } from './languages';
 
 export type Messages = Record<string, unknown>;
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function mergeMessages(base: Messages, override: Messages): Messages {
+  const merged: Messages = { ...base };
+
+  for (const [key, value] of Object.entries(override ?? {})) {
+    const existing = merged[key];
+    if (isPlainObject(existing) && isPlainObject(value)) {
+      merged[key] = mergeMessages(existing as Messages, value as Messages);
+      continue;
+    }
+    merged[key] = value;
+  }
+
+  return merged;
+}
+
 /** Shared locale message loader and cache with bundled English cold-boot
  * fallback and deduplicated in-flight dynamic chunk fetches. */
 const messageCache = new Map<Language, Messages>();
@@ -29,14 +48,18 @@ export function loadLocaleMessages(lang: Language): Promise<Messages> {
   const inFlight = inFlightPromises.get(lang);
   if (inFlight) return inFlight;
 
+  const fallback = (messageCache.get('en') ?? en) as Messages;
   const config = LANGUAGES[lang] ?? LANGUAGES.en;
-  const promise = (config.load ? config.load() : Promise.resolve({ default: en })).then((mod) => {
-    const messages = (mod.default ?? mod) as Messages;
-    messageCache.set(lang, messages);
+  const promise = (config.load ? config.load() : Promise.resolve({ default: {} })).then((mod) => {
+    const loaded = (mod.default ?? mod ?? {}) as Messages;
+    const merged = lang === 'en' ? { ...fallback } : mergeMessages(fallback, loaded);
+    messageCache.set(lang, merged);
     inFlightPromises.delete(lang);
-    return messages;
+    return merged;
   });
+
   promise.catch(() => {
+    messageCache.set(lang, fallback);
     inFlightPromises.delete(lang);
   });
 

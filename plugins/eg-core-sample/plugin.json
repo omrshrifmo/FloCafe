@@ -1,0 +1,32 @@
+{
+  "id": "eg-core-sample",
+  "name": "Egypt Core Sample",
+  "version": "0.1.0",
+  "minFloCafeVersion": "3.9.0",
+  "description": "Example plugin for Egypt-ready settings and routing.",
+  "author": "FloCafe",
+  "license": "MIT",
+  "main": "index.js",
+  "hooks": {
+    "onActivate": ["migrations/run.js"],
+    "onDeactivate": [],
+    "events": ["order.created", "order.closed", "shift.closed"]
+  },
+  "routes": {
+    "api": [
+      { "method": "GET", "path": "/api/v1/eg/example", "handler": "api/example.js" }
+    ],
+    "ui": [
+      { "path": "/eg/settings", "page": "ui/SettingsPage.jsx" }
+    ]
+  },
+  "permissions": ["eg.example.view", "eg.example.manage"],
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "enableArabicOnly": { "type": "boolean", "default": true },
+      "regionCode": { "type": "string", "default": "EG" },
+      "taxMultiplier": { "type": "number", "default": 1.25 }
+    }
+  }
+}

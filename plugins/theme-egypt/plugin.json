@@ -1,0 +1,32 @@
+{
+  "id": "theme-egypt",
+  "name": "Egypt Theme",
+  "version": "0.1.0",
+  "minFloCafeVersion": "3.9.0",
+  "description": "Arabic-first white-label theme for Egyptian merchants.",
+  "author": "FloCafe",
+  "license": "MIT",
+  "main": "index.js",
+  "hooks": {
+    "onActivate": [],
+    "onDeactivate": [],
+    "events": []
+  },
+  "routes": {
+    "api": [],
+    "ui": []
+  },
+  "permissions": ["theme.egypt.view", "theme.egypt.manage"],
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "brandName": { "type": "string", "default": "Flo Café" },
+      "appTitle": { "type": "string", "default": "Flo" },
+      "accentColor": { "type": "string", "default": "#3248FF" },
+      "secondaryColor": { "type": "string", "default": "#E8EBFF" },
+      "direction": { "type": "string", "default": "rtl" },
+      "currencyCode": { "type": "string", "default": "EGP" },
+      "locale": { "type": "string", "default": "ar-EG" }
+    }
+  }
+}
