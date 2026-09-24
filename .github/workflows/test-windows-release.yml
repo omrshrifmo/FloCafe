@@ -1,0 +1,48 @@
+name: Build and Release Windows Installer
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build-and-release-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Windows Installer
+        shell: bash
+        run: |
+          npm run build:frontend && npm run build && npx electron-builder --win --publish never --config.npmRebuild=false -c.publish.channel="latest" -w nsis
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Extract Branch Name
+        shell: bash
+        run: echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: Upload Windows assets to GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: windows-test-release-${{ steps.extract_branch.outputs.branch }}-${{ github.run_number }}
+          name: Windows Test Build (${{ steps.extract_branch.outputs.branch }})
+          files: release/*.exe
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
