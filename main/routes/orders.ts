@@ -15,6 +15,7 @@ import { adjustProductStock, resolveInventoryDeduction } from '../services/inven
 import { applyRecipeSnapshot, buildRecipeSnapshot, parseRecipeSnapshot } from '../services/recipes';
 import { notifyKdsUpdate, notifyOrderUpdated } from '../services/kds';
 import { cloudSync } from '../services/cloud-sync';
+import { eventBus } from '../events/EventBus';
 import { validateOrderNotes, validateItemNotes, validateProductQuantity } from './orders-validation';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS, hasRole } from '../../shared/role-permissions';
@@ -711,6 +712,7 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
 
     if (!result.idempotentReplay) {
       notifyKdsUpdate();
+      eventBus.emit('order.created', result.order);
       cloudSync.recordOrderChanged(result.order.id, 'order.created');
 
       if (customer_id) {
@@ -985,6 +987,7 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
     if (result.replayResponse) return res.json(result.replayResponse);
     cloudSync.recordOrderChanged(req.params.id as string, 'order.updated');
     notifyKdsUpdate();
+      eventBus.emit('order.created', result.order);
 
     res.json({ order: Object.assign({}, result.updatedOrder, { items: result.updatedItems }) });
   } catch (error: any) {
@@ -1180,6 +1183,7 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
     if (changed) {
       cloudSync.recordOrderChanged(req.params.id as string, `order.${status}`);
       notifyKdsUpdate();
+      eventBus.emit('order.created', result.order);
     }
 
     res.json({ order: Object.assign({}, updatedOrder, { items: orderItems, table }) });
@@ -1268,6 +1272,7 @@ router.patch('/:id/convert-to-takeaway', orderWriteRateLimit, requireRole(...ROL
 
     cloudSync.recordOrderChanged(req.params.id as string, 'order.type_changed');
     notifyKdsUpdate();
+      eventBus.emit('order.created', result.order);
 
     res.json({ order: Object.assign({}, updatedOrder, { items: orderItems, table: null }) });
   } catch (error: any) {

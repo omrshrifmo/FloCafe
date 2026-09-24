@@ -1230,6 +1230,19 @@
     "tables": "Tables",
     "title": "Server App"
   },
+  "plugins": {
+    "loading": "Loading...",
+    "plugins": "Plugins",
+    "noPlugins": "No plugins found",
+    "configure": "Configure",
+    "enable": "Enable",
+    "disable": "Disable",
+    "settings": "Settings",
+    "noSettingsSchema": "No settings schema found",
+    "back": "Back",
+    "saving": "Saving...",
+    "save": "Save"
+  },
   "settings": {
     "aboutDescription": "FloPOS is a free forever, open-source restaurant POS for cafes, restaurants, bakeries, food trucks, cloud kitchens, and bars. It includes ordering, tables, menus, kitchen display, receipt printing, staff access, and local data storage. Download it, run service, keep your data, and own your POS.",
     "aboutFloCafe": "About FloCafe",
@@ -1904,6 +1917,7 @@
     "tabMoreApps": "More Apps",
     "tabOrderflow": "OrderFlow",
     "tabPrinters": "Printers",
+    "tabPlugins": "Plugins",
     "tabPrinting": "Print Options",
     "tabReceiptsPrinters": "Receipts & Printers",
     "tabUpdates": "Software Updates",
@@ -2671,7 +2685,20 @@
       "timelineTyping": "typing: {time}",
       "title": "Sent messages"
     },
-    "settings": {
+    "plugins": {
+    "loading": "Loading...",
+    "plugins": "Plugins",
+    "noPlugins": "No plugins found",
+    "configure": "Configure",
+    "enable": "Enable",
+    "disable": "Disable",
+    "settings": "Settings",
+    "noSettingsSchema": "No settings schema found",
+    "back": "Back",
+    "saving": "Saving...",
+    "save": "Save"
+  },
+  "settings": {
       "enabled": "WhatsApp is enabled on this tenant.",
       "enabledHint": "Manage the connection from the WhatsApp page.",
       "openConnection": "Open connection"

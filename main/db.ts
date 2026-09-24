@@ -5005,6 +5005,32 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       }
     },
   },
+  {
+    version: 90,
+    name: 'Add plugins tables',
+    up: () => {
+      getDatabase().exec(`
+        CREATE TABLE IF NOT EXISTS plugins (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          version TEXT NOT NULL,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          settings TEXT,
+          migrations_version TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS plugin_migrations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          plugin_id TEXT NOT NULL,
+          version TEXT NOT NULL,
+          name TEXT NOT NULL,
+          executed_at TEXT NOT NULL,
+          FOREIGN KEY(plugin_id) REFERENCES plugins(id)
+        );
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

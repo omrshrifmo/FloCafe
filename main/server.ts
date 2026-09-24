@@ -8,6 +8,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import jwt from 'jsonwebtoken';
 import { registerRoutes } from './routes';
+import { pluginsService } from './services/plugins';
+import { eventBus } from './events/EventBus';
 import { getJWTSecret } from './routes/auth';
 import { databaseMaintenanceMiddleware, getDbHealth, isDatabaseMaintenanceActive, isKdsEnabled } from './db';
 import { setupKdsWebSocket } from './services/kds';
@@ -200,6 +202,7 @@ export function startServer(): Promise<void> {
 
     // ── All API routes ─────────────────────────────────────────────────
     registerRoutes(app);
+    pluginsService.loadEnabledPlugins(app, eventBus);
 
     // ── Serve Next.js static export ────────────────────────────────────
     // Must come AFTER API routes so /api/* is not caught by the SPA fallback.

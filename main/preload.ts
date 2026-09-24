@@ -15,6 +15,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSetting: (key: string, value: string) => ipcRenderer.invoke('set-setting', key, value),
 
+  plugins: {
+    list: () => ipcRenderer.invoke('plugins:list'),
+    enable: (id: string) => ipcRenderer.invoke('plugins:enable', id),
+    disable: (id: string) => ipcRenderer.invoke('plugins:disable', id),
+    getSettings: (id: string) => ipcRenderer.invoke('plugins:getSettings', id),
+    updateSettings: (id: string, settings: any) => ipcRenderer.invoke('plugins:updateSettings', id, settings),
+    getRegistry: () => ipcRenderer.invoke('plugins:getRegistry'),
+  },
+
   // Pushes resolved dark mode state to main for native title bar updates.
   setThemeEffective: (isDark: boolean) => ipcRenderer.invoke('set-theme-effective', isDark),
 
