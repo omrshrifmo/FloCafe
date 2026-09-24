@@ -9,6 +9,7 @@ import { BETA_CHANNEL_SETTING_KEY, parseStoredBetaChannelEnabled, resolveUpdateC
 import { computeTaxPackUpdates, fetchRemoteTaxPackCatalog } from './tax-packs/catalog';
 import { startServer, stopServer, getLocalIP, isServerRunning, getServerPort } from './server';
 import { cloudSync } from './services/cloud-sync';
+import { pluginsService } from './services/plugins';
 import { telemetry, sendEvent as sendTelemetryEvent } from './services/telemetry';
 import { googleDrive } from './services/google-drive';
 import { startKdsServer, stopKdsServer, getKdsPort, isKdsServerRunning } from './kds-server';
@@ -1178,6 +1179,7 @@ async function initialize(): Promise<void> {
 
     console.log('[Flo] Initializing database...');
     initDatabase();
+    pluginsService.initialize();
     if (isShutdownRequested()) return;
 
     console.log('[Flo] Starting local server...');

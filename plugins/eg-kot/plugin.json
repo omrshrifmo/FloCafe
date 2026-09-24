@@ -1,0 +1,17 @@
+{
+  "id": "eg-kot",
+  "name": "Egypt KOT/KTS",
+  "description": "Multi-kitchen KOT/KTS slips for Chef, Barista, Shisha, etc.",
+  "version": "0.1.0",
+  "minFloCafeVersion": "3.9.0",
+  "author": "Sample Author",
+  "license": "MIT",
+  "main": "index.js",
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "autoPrintOnOrderSubmit": { "type": "boolean", "default": true },
+      "defaultPrinterId": { "type": "string", "default": "" }
+    }
+  }
+}

@@ -9,6 +9,7 @@ import { clearJWTSecretCache } from './routes/auth';
 import { getKdsPort } from './kds-server';
 import { authorizeMasterPin, isMasterPinAvailable, isMasterPinSet } from './services/master-pin';
 import { runHealthCheck, applySafeFixes } from './services/schema-health';
+import { pluginsService } from './services/plugins';
 import { getStatus as getWhatsAppStatus, sanitizeLogText } from './services/whatsapp';
 import { createKdsWindow, applyWindowControlAction } from './window-options';
 import {
@@ -374,6 +375,92 @@ export function registerIpcHandlers(
     }
     showMainWindow(win);
     return { success: true };
+  });
+
+  // Plugins
+  handle('plugins:list', async () => {
+    return withDatabaseRequest(async () => {
+      try {
+        const plugins = pluginsService.listPlugins();
+        return plugins.map((p: any) => ({
+          ...p,
+          manifest: pluginsService.getPluginMetadata(p.id)
+        }));
+      } catch (err: any) {
+        log.error('[IPC] plugins:list error:', err);
+        throw err;
+      }
+    });
+  });
+
+  handle('plugins:enable', async (_, id: string) => {
+    return withDatabaseRequest(async () => {
+      try {
+        pluginsService.enablePlugin(id);
+        return { success: true };
+      } catch (err: any) {
+        log.error('[IPC] plugins:enable error:', err);
+        throw err;
+      }
+    });
+  });
+
+  handle('plugins:disable', async (_, id: string) => {
+    return withDatabaseRequest(async () => {
+      try {
+        pluginsService.disablePlugin(id);
+        return { success: true };
+      } catch (err: any) {
+        log.error('[IPC] plugins:disable error:', err);
+        throw err;
+      }
+    });
+  });
+
+  handle('plugins:getSettings', async (_, id: string) => {
+    return withDatabaseRequest(async () => {
+      try {
+        return pluginsService.getSettings(id);
+      } catch (err: any) {
+        log.error('[IPC] plugins:getSettings error:', err);
+        throw err;
+      }
+    });
+  });
+
+  handle('plugins:updateSettings', async (_, id: string, settings: any) => {
+    return withDatabaseRequest(async () => {
+      try {
+        pluginsService.updateSettings(id, settings);
+        return { success: true };
+      } catch (err: any) {
+        log.error('[IPC] plugins:updateSettings error:', err);
+        throw err;
+      }
+    });
+  });
+
+  handle('plugins:getRegistry', async () => {
+    return withDatabaseRequest(async () => {
+      try {
+        const plugins = pluginsService.listPlugins();
+        const uiRoutes: any[] = [];
+        for (const p of plugins) {
+           if (p.enabled === 1) {
+             const manifest = pluginsService.getPluginMetadata(p.id);
+             if (manifest && manifest.routes && manifest.routes.ui) {
+                for (const r of manifest.routes.ui) {
+                   uiRoutes.push({ pluginId: p.id, path: r.path, page: r.page });
+                }
+             }
+           }
+        }
+        return uiRoutes;
+      } catch (err: any) {
+        log.error('[IPC] plugins:getRegistry error:', err);
+        throw err;
+      }
+    });
   });
 
   // Settings

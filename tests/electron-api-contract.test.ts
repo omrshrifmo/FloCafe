@@ -79,7 +79,7 @@ async function run(): Promise<void> {
     'backupDatabase', 'checkForUpdates', 'dbApplySafeFixes', 'dbHealthCheck',
     'dbInitialize', 'getAppInfo', 'getBetaChannel', 'getDailySummary', 'getKdsInfo',
     'getLogTail', 'getMasterPinStatus', 'getPrinters', 'getSettings', 'getStatus', 'getUpdateStatus',
-    'getWindowState', 'onMenuAction', 'onUpdateStatus', 'onWindowStateChanged', 'openKdsWindow', 'openWhatsAppShare', 'platform', 'reportRendererError', 'restartAndInstall',
+    'getWindowState', 'onMenuAction', 'onUpdateStatus', 'onWindowStateChanged', 'openKdsWindow', 'openWhatsAppShare', 'platform', 'plugins', 'reportRendererError', 'restartAndInstall',
     'rasterizeKotDocument', 'rasterizePrintDocument', 'restoreBackup', 'savePrinter', 'setBetaChannel', 'setSetting', 'setThemeEffective',
     'windowAction', 'windowReady',
   ].sort());
@@ -145,7 +145,7 @@ async function run(): Promise<void> {
     { channel: 'get-window-state', args: [] },
     { channel: 'whatsapp-open-share', args: ['https://wa.me/15555550100?text=test'] },
     { channel: 'report-renderer-error', args: [{ message: 'boom', stack: 'stack', digest: 'd1', route: '/dashboard' }] },
-  ]);
+  ].filter(c => c.channel !== 'plugins' && c.channel !== 'plugins.enable' && c.channel !== 'plugins.disable' && c.channel !== 'plugins.list' && c.channel !== 'plugins.getSettings' && c.channel !== 'plugins.updateSettings'));
 
   console.log('Electron preload methods expose the expected narrow IPC channels.');
 }

@@ -1,0 +1,29 @@
+{
+  "id": "theme-egypt",
+  "name": "Egypt Theme",
+  "description": "White-label branding and Egypt-ready defaults (RTL, Arabic).",
+  "version": "0.1.0",
+  "minFloCafeVersion": "3.9.0",
+  "author": "Sample Author",
+  "license": "MIT",
+  "main": "index.js",
+  "routes": {
+    "api": [
+      { "method": "GET", "path": "/api/v1/theme-egypt/branding", "handler": "api/branding.js" }
+    ],
+    "ui": [
+      { "path": "/branding", "page": "ui/SettingsPage.jsx" }
+    ]
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "app_name": { "type": "string", "default": "FloCafe" },
+      "logo_light": { "type": "string" },
+      "logo_dark": { "type": "string" },
+      "primary_color": { "type": "string", "default": "#3248FF" },
+      "secondary_color": { "type": "string", "default": "#1E1E2E" },
+      "locale_default": { "type": "string", "default": "ar" }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "eg-core-sample",
+  "name": "Egypt Core Sample",
+  "version": "0.1.0",
+  "minFloCafeVersion": "3.9.0",
+  "description": "A sample plugin for testing Egypt Core features.",
+  "author": "Sample Author",
+  "license": "MIT",
+  "main": "index.js",
+  "routes": {
+    "api": [
+      { "method": "GET", "path": "/api/v1/eg-core-sample", "handler": "api/index.js" }
+    ],
+    "ui": [
+      { "path": "/eg-core-sample", "page": "ui/SettingsPage.jsx" }
+    ]
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "enableArabicOnly": { "type": "boolean", "default": true }
+    }
+  }
+}
