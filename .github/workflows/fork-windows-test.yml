@@ -1,0 +1,61 @@
+name: Fork Windows Test Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Check Windows signing credentials
+        shell: pwsh
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTS_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK) -or [string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) {
+            Write-Warning "WINDOWS_CERTS/WINDOWS_CERTS_PASSWORD not set — building an UNSIGNED Windows installer."
+          } else {
+            Write-Host "Windows signing credentials present."
+          }
+
+      - name: Build Windows
+        shell: bash
+        run: |
+          npm run build:frontend && npm run build && npx electron-builder --win --publish never --config.npmRebuild=false -c.publish.channel="latest"
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTS_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
+          GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
+
+      - name: Upload Windows executable to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-test-build-${{ github.run_number }}
+          name: Windows Test Build (${{ github.run_number }})
+          files: release/*.exe
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
