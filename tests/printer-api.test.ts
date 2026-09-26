@@ -64,6 +64,13 @@ try {
   throw error;
 }
 
+// requirePermission() resolves effective permissions from a real users row
+// keyed by req.user.userId — the token/claim alone is not authoritative.
+getDatabase().prepare(
+  `INSERT OR IGNORE INTO users (id, name, email, password, role, is_active, created_at, updated_at)
+   VALUES ('owner-1', 'Owner', 'owner@flo.local', 'unused', 'owner', 1, ?, ?)`
+).run(now(), now());
+
 const app = express();
 app.use(express.json());
 app.use((req: any, _res: any, next: any) => {
@@ -74,9 +81,8 @@ app.use('/api/printers', printerRoutes);
 app.use('/api/kitchen-stations', kitchenStationRoutes);
 
 const db = getDatabase();
-// Regional settings are no longer auto-seeded (docs/business-decisions.md,
-// "Regional settings come from signup, never from a fallback") — this
-// fixture simulates an already-configured store, not first-run setup.
+// Regional settings come from signup, never a fallback; seed one
+// explicitly so resolveRegionalSnapshot() resolves.
 db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('country', 'IN', ?) ON CONFLICT(key) DO UPDATE SET value='IN', updated_at=excluded.updated_at`).run(now());
 db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('currency', 'INR', ?) ON CONFLICT(key) DO UPDATE SET value='INR', updated_at=excluded.updated_at`).run(now());
 db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('timezone', 'Asia/Kolkata', ?) ON CONFLICT(key) DO UPDATE SET value='Asia/Kolkata', updated_at=excluded.updated_at`).run(now());

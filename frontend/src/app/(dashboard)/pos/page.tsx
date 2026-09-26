@@ -27,7 +27,7 @@ import PosTopbar from '@/components/pos/PosTopbar';
 import { ShiftOpenModal } from '@/components/dashboard/ShiftOpenModal';
 import { ShiftCloseModal } from '@/components/dashboard/ShiftCloseModal';
 import { useCashSession } from '@/hooks/useCashSession';
-import { hasRole, ROLE_ACCESS } from '@shared/role-permissions';
+import { tenantCan } from '@/lib/permissions';
 import { CashDrawerMovementModal } from '@/components/dashboard/CashDrawerMovementModal';
 import { useCashDrawerMovements } from '@/hooks/useCashDrawerMovements';
 import { usePrinterStore } from '@/hooks/usePrinter';
@@ -110,7 +110,7 @@ export default function POSPage() {
   const shift = useCashSession();
   // Shift actions follow the same owner/manager/cashier group as the
   // backend route gates (backend still enforces; this only hides the entry).
-  const canUseShift = hasRole(currentTenant?.role, ROLE_ACCESS.ownerManagerCashier);
+  const canUseShift = tenantCan(currentTenant, 'cash.shifts.view');
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -870,7 +870,7 @@ export default function POSPage() {
       // makes a lost response safe to retry without creating a second order.
       const paymentResponse = await api.post(
         `/bills/${billData.bill.id}/payments`,
-        { payments: paymentLines, customer_id: cart.customerId },
+        { payments: paymentLines, customer_id: billData.bill.customer_id ?? orderData.order.customer_id ?? null },
         { headers: { 'Idempotency-Key': attempt.paymentIdempotencyKey } },
       );
       const paidBill: Bill = paymentResponse.data?.bill || billData.bill;
@@ -915,10 +915,14 @@ export default function POSPage() {
   };
 
 
-  const handleSelectAvailableTable = (tableId: string, customer?: { id: number; name: string; phone: string } | null) => {
+  const handleSelectAvailableTable = (tableId: string, customer?: { id: string; name: string; phone: string } | null) => {
+    const cartCustomerWasInherited = cart.customerSource === 'reservation';
+
     cart.setTableId(tableId);
-    if (customer) {
-      cart.setCustomer({ ...customer, email: null, visits_count: 0, total_spent: 0, last_visit_at: null, country_code: '' });
+    if (customer && (!cart.customerId || cartCustomerWasInherited)) {
+      cart.setReservationCustomer({ ...customer, email: null, visits_count: 0, total_spent: 0, last_visit_at: null, country_code: '' });
+    } else if (!customer && cartCustomerWasInherited) {
+      cart.setCustomer(null);
     }
     setShowTablePicker(false);
   };

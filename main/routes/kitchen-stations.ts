@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { getDatabase, now } from '../db';
-import { requireRole } from '../middleware/security';
-import { ROLE_ACCESS } from '../../shared/role-permissions';
+import { requirePermission } from '../services/authorization';
 
 const router = Router();
 
@@ -18,8 +17,17 @@ function normalizeCategoryIds(value: unknown): string[] | null {
 function categoryIdsExist(db: ReturnType<typeof getDatabase>, categoryIds: string[]) {
   if (categoryIds.length === 0) return true;
   const placeholders = categoryIds.map(() => '?').join(',');
-  const rows = db.prepare(`SELECT id FROM categories WHERE id IN (${placeholders})`).all(...categoryIds);
+  const rows = db.prepare(`SELECT id FROM categories WHERE deleted_at IS NULL AND is_active = 1 AND id IN (${placeholders})`).all(...categoryIds);
   return rows.length === categoryIds.length;
+}
+
+function parseStoredCategoryIds(value: unknown): string[] {
+  if (typeof value !== 'string') return [];
+  try {
+    return normalizeCategoryIds(JSON.parse(value)) || [];
+  } catch {
+    return [];
+  }
 }
 
 function removeCategoriesFromOtherStations(db: ReturnType<typeof getDatabase>, categoryIds: string[], excludedStationId: string) {
@@ -52,7 +60,7 @@ function removeCategoriesFromOtherStations(db: ReturnType<typeof getDatabase>, c
   return movedFrom;
 }
 
-router.get('/', (req: Request, res: Response) => {
+router.get('/', requirePermission('kitchen.stations.manage'), (req: Request, res: Response) => {
   try {
     const db = getDatabase();
     const stations = db.prepare('SELECT * FROM kitchen_stations WHERE is_active = 1 ORDER BY sort_order, name').all();
@@ -63,7 +71,7 @@ router.get('/', (req: Request, res: Response) => {
   }
 });
 
-router.get('/:id', (req: Request, res: Response) => {
+router.get('/:id', requirePermission('kitchen.stations.manage'), (req: Request, res: Response) => {
   try {
     const db = getDatabase();
     const station = db.prepare('SELECT * FROM kitchen_stations WHERE id = ?').get(req.params.id);
@@ -87,7 +95,7 @@ router.get('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.post('/', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+router.post('/', requirePermission('kitchen.stations.manage'), (req: Request, res: Response) => {
   try {
     const { name, description, category_ids, printer_id, printer_ip, printer_port, printer_name, sort_order } = req.body;
 
@@ -137,12 +145,12 @@ router.post('/', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: R
   }
 });
 
-router.put('/:id', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+router.put('/:id', requirePermission('kitchen.stations.manage'), (req: Request, res: Response) => {
   try {
     const { name, description, category_ids, printer_id, printer_ip, printer_port, printer_name, sort_order, is_active } = req.body;
     const db = getDatabase();
 
-    const station = db.prepare('SELECT * FROM kitchen_stations WHERE id = ?').get(req.params.id);
+    const station = db.prepare('SELECT * FROM kitchen_stations WHERE id = ?').get(req.params.id) as { category_ids: string | null } | undefined;
     if (!station) {
       return res.status(404).json({ error: 'Kitchen station not found' });
     }
@@ -151,8 +159,13 @@ router.put('/:id', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res:
     if (normalizedCategoryIds === null) {
       return res.status(400).json({ error: 'category_ids must be an array of valid category IDs' });
     }
-    if (normalizedCategoryIds !== undefined && !categoryIdsExist(db, normalizedCategoryIds)) {
-      return res.status(400).json({ error: 'One or more category_ids do not match an existing category' });
+    if (normalizedCategoryIds !== undefined) {
+      const previouslyAssignedIds = new Set(parseStoredCategoryIds(station.category_ids));
+      const newlyAssignedIds = normalizedCategoryIds.filter((id) => !previouslyAssignedIds.has(id));
+      // Retain historical assignments, but require newly routed categories to be active.
+      if (!categoryIdsExist(db, newlyAssignedIds)) {
+        return res.status(400).json({ error: 'One or more category_ids do not match an existing category' });
+      }
     }
     if (printer_id !== undefined && printer_id !== null) {
       if (typeof printer_id !== 'string' || printer_id.trim().length === 0) {
@@ -203,7 +216,7 @@ router.put('/:id', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res:
 });
 
 // PUT /api/kitchen-stations/:id/users — replace the full set of staff logins assigned to this station
-router.put('/:id/users', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+router.put('/:id/users', requirePermission('kitchen.stations.manage'), (req: Request, res: Response) => {
   try {
     const { user_ids } = req.body;
     if (!Array.isArray(user_ids)) {
@@ -254,7 +267,7 @@ router.put('/:id/users', requireRole(...ROLE_ACCESS.ownerManager), (req: Request
   }
 });
 
-router.delete('/:id', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+router.delete('/:id', requirePermission('kitchen.stations.manage'), (req: Request, res: Response) => {
   try {
     const db = getDatabase();
     const station = db.prepare('SELECT * FROM kitchen_stations WHERE id = ?').get(req.params.id);

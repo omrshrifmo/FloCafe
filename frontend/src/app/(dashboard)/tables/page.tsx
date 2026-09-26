@@ -9,6 +9,7 @@ import type { Table, Customer, Order, OrderItem } from '@/lib/types';
 import FloorplanEditor from '@/components/tables/FloorplanEditor';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
+import { tenantCan } from '@/lib/permissions';
 import { countryName } from '@/lib/countries';
 import { parsePhone, dialCodeFor } from '@/lib/phone';
 import { useTranslations, type AppConfig } from 'use-intl';
@@ -52,16 +53,20 @@ function ReserveModal({ table, onClose, onDone }: ReserveModalProps) {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const searchRequestRef = useRef(0);
 
 
   const searchCustomers = (q: string) => {
+    const requestId = ++searchRequestRef.current;
     if (q.length < 2) { setResults([]); return; }
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
         const { data } = await api.get(`/customers-search?q=${encodeURIComponent(q)}`);
-        setResults(data.customers || []);
-      } catch { setResults([]); }
+        if (requestId === searchRequestRef.current) setResults(Array.isArray(data) ? data : []);
+      } catch {
+        if (requestId === searchRequestRef.current) setResults([]);
+      }
     }, 300);
   };
 
@@ -94,8 +99,6 @@ function ReserveModal({ table, onClose, onDone }: ReserveModalProps) {
       await api.patch(`/tables/${table.id}/status`, {
         status: 'reserved',
         reservation_customer_id: selected?.id ?? null,
-        reservation_customer_name: selected?.name ?? null,
-        reservation_customer_phone: selected?.phone ?? null,
       });
       const msg = selected
         ? tTables('reservedFor', { name: table.name, customer: selected.name })
@@ -204,7 +207,7 @@ export default function TablesPage() {
   const router = useRouter();
   const tOrders = useTranslations('orders');
   const { currentTenant } = useAuthStore();
-  const canManageTables = currentTenant?.role === 'owner' || currentTenant?.role === 'manager';
+  const canManageTables = tenantCan(currentTenant, 'tables.manage');
   const [tables, setTables] = useState<Table[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -505,6 +508,15 @@ export default function TablesPage() {
                     <span className="text-xs text-gray-400">{tTables(TABLE_STATUS_LABEL_KEYS[table.status])}</span>
                   </div>
                 </div>
+
+                {table.status === 'reserved' && table.reservation_customer_name && (
+                  <div className="px-4 pt-2">
+                    <p className="text-xs text-yellow-700 font-medium truncate">{table.reservation_customer_name}</p>
+                    {table.reservation_customer_phone && (
+                      <p className="text-xs text-yellow-600 mt-0.5"><Ltr>{table.reservation_customer_phone}</Ltr></p>
+                    )}
+                  </div>
+                )}
 
                 {/* Orders section */}
                 {hasOrders ? (

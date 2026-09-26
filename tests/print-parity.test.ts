@@ -31,6 +31,7 @@ import {
   escPosToText,
   buildEscPos,
 } from '../main/printers/thermal';
+import { loadFrontendPrintModules, measureEscPos } from './helpers/receipt-column-measure';
 import { renderClassicReceiptViaDocument } from '../main/printers/document-classic';
 import {
   formatClassicReceiptLegacy,
@@ -51,42 +52,19 @@ import {
 } from '../shared/print';
 
 // ---------------------------------------------------------------------------
-// Frontend module loading (same technique as tests/printer.test.ts: the
-// production path aliases cannot be applied by plain ts-node, so requests
-// are remapped for the duration of each require).
+// Shared width ladder
+//
+// Both render paths are driven off one ladder so their output can be compared
+// at the same column budget. The backend takes an explicit column count; the
+// frontend encoder is addressed by paper size, and paper size maps to columns
+// through `columnsForReceiptPaperSize`, so a rung is comparable only where a
+// paper size actually reaches it. The rungs the two sides share are what
+// section 2a measures; the ones they do not share are reported rather than
+// skipped silently.
 // ---------------------------------------------------------------------------
 
-function loadFrontendPrintModules(): {
-  receiptEncoder: typeof import('../frontend/src/lib/printer/receipt-encoder');
-  webPrint: typeof import('../frontend/src/lib/printer/web-print');
-  warnings: typeof import('../frontend/src/lib/printer/warnings');
-} {
-  const path = require('path') as typeof import('path');
-  const moduleApi = require('module') as {
-    _resolveFilename: (...args: any[]) => string;
-  };
-  const originalResolveFilename = moduleApi._resolveFilename;
-  moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
-    let resolvedRequest = request;
-    if (request === '@countries') {
-      resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
-    } else if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
-    } else if (request.startsWith('@print/')) {
-      resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
-    }
-    return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
-  };
-  try {
-    return {
-      receiptEncoder: require('../frontend/src/lib/printer/receipt-encoder'),
-      webPrint: require('../frontend/src/lib/printer/web-print'),
-      warnings: require('../frontend/src/lib/printer/warnings'),
-    };
-  } finally {
-    moduleApi._resolveFilename = originalResolveFilename;
-  }
-}
+const WIDTH_LADDER = [32, 42, 48] as const;
+const FRONTEND_PAPER_BY_COLUMNS: ReadonlyMap<number, 58 | 80> = new Map([[32, 58], [42, 80]]);
 
 // ---------------------------------------------------------------------------
 // Shared fixtures (exported so later print-architecture issues reuse them)
@@ -355,7 +333,7 @@ function run(): void {
     warn(refusalWarnings.some((warning) => warning.kind === 'financial'), 'backend refusal identifies the unsupported paid row as financial');
   }
   for (const template of ['classic', 'compact'] as const) {
-    for (const cols of [32, 42, 48]) {
+    for (const cols of WIDTH_LADDER) {
       section(`Backend ${template} @ ${cols} cols`);
       const text = escPosToText(
         formatReceipt(order, bill, business, template, cols, false, false, undefined, [])
@@ -372,11 +350,11 @@ function run(): void {
   }
 
   // ------------------------------------------------------------------
-  // 2. Frontend WebUSB ESC/POS — classic + compact at 58mm(32c)/80mm(48c)
+  // 2. Frontend WebUSB ESC/POS — classic + compact, on the shared ladder
   // ------------------------------------------------------------------
   for (const variant of ['classic', 'compact'] as const) {
-    for (const paperWidth of [58, 80] as const) {
-      section(`WebUSB ${variant} @ ${paperWidth}mm`);
+    for (const [columns, paperWidth] of FRONTEND_PAPER_BY_COLUMNS) {
+      section(`WebUSB ${variant} @ ${columns} cols (${paperWidth}mm)`);
       const warnings: Warnings = [];
       const bytes = variant === 'classic'
         ? fe.receiptEncoder.buildClassicReceiptBytes(fullBill as any, tenant as any, { paperWidth }, warnings as any)
@@ -415,6 +393,53 @@ function run(): void {
       truncationMarker: true,
       reprint: true,
     }, warn);
+  }
+
+  // ------------------------------------------------------------------
+  // 2a. Column parity at the same width — the comparison this harness
+  // previously could not make. Sections 1 and 2 ran each path at its own
+  // widths, so the two were never rendered at the same column budget and
+  // nothing compared their geometry. Each rung the paths share is now
+  // rendered through both and measured from the emitted bytes: the
+  // full-width rule in the output states the budget the path actually laid
+  // out for. Rungs only one path can reach are reported, not skipped.
+  // ------------------------------------------------------------------
+  section('Column parity at the same width');
+  for (const template of ['classic', 'compact'] as const) {
+    for (const cols of WIDTH_LADDER) {
+      const backend = measureEscPos(formatReceipt(order, bill, business, template, cols, false, false, undefined, []));
+      const paperWidth = FRONTEND_PAPER_BY_COLUMNS.get(cols);
+      if (paperWidth === undefined) {
+        console.log(`  ladder ${template} @ ${cols} cols: frontend has no paper size that reaches this width`);
+        warn(true, `column-parity/${template}/${cols}: backend-only rung reported, no frontend paper size reaches this width`);
+        continue;
+      }
+      const frontend = measureEscPos(
+        (template === 'classic'
+          ? fe.receiptEncoder.buildClassicReceiptBytes(fullBill as any, tenant as any, { paperWidth }, [] as any)
+          : fe.receiptEncoder.buildCompactReceiptBytes(fullBill as any, tenant as any, { paperWidth }, [] as any)),
+      );
+      console.log(
+        `  ladder ${template} @ ${cols} cols: backend rendered ${backend.measuredRuleWidths.join('/')} cells, `
+        + `frontend rendered ${frontend.measuredRuleWidths.join('/')} cells`,
+      );
+      warn(
+        backend.measuredRuleWidths.join(',') === String(cols),
+        `column-parity/${template}/${cols}: backend renders the width it was driven at`,
+      );
+      warn(
+        frontend.measuredRuleWidths.join(',') === String(cols),
+        `column-parity/${template}/${cols}: frontend renders the width its ${paperWidth}mm paper size maps to`,
+      );
+      warn(
+        backend.measuredRuleWidths.join(',') === frontend.measuredRuleWidths.join(','),
+        `column-parity/${template}/${cols}: both paths render the same number of columns at the same width`,
+      );
+      warn(
+        backend.maxFontACells <= cols && frontend.maxFontACells <= cols,
+        `column-parity/${template}/${cols}: no font-A line overflows the shared width on either path`,
+      );
+    }
   }
 
   // ------------------------------------------------------------------
@@ -550,6 +575,135 @@ function run(): void {
       warn(semantic.includes(earnedLabel.toLowerCase()) && semantic.includes('14'), `${renderer}: loyalty earned-points line`);
       warn(semantic.includes(printLabel('en', 'print.pointsRedeemed').toLowerCase()) && semantic.includes('5'), `${renderer}: loyalty redeemed-points line`);
       warn(semantic.includes(printLabel('en', 'print.pointsBalance').toLowerCase()) && semantic.includes('30'), `${renderer}: loyalty balance line`);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 2d. Cash tendered & change parity (#770) — every supported normal
+  // receipt path prints the same tendered/change rows; exact and legacy
+  // payments without the optional fields keep their existing output.
+  // ------------------------------------------------------------------
+  section('Cash tendered and change rows');
+  {
+    const tenderedLabel = printLabel('en', 'receipt.cashReceived');
+    const changeLabel = printLabel('en', 'pos.changeReturned');
+    const renderBill = (fixture: any): Array<[string, string]> => [
+      ['backend/classic', escPosToText(formatReceipt(order, fixture, business, 'classic', 42, true, false, 'full', [], false, 'en'))],
+      ['backend/compact', escPosToText(formatReceipt(order, fixture, business, 'compact', 42, true, false, 'full', [], false, 'en'))],
+      ['webusb/classic', new TextDecoder().decode(fe.receiptEncoder.buildClassicReceiptBytes(fixture, tenant as any, { paperWidth: 80, useUnicode: true, languages: ['en'] }, []))],
+      ['webusb/compact', new TextDecoder().decode(fe.receiptEncoder.buildCompactReceiptBytes(fixture, tenant as any, { paperWidth: 80, useUnicode: true, languages: ['en'] }, []))],
+      ['browser/html', fe.webPrint.generateBillHtml(fixture, tenant as any, { paperSize: 'thermal80', businessName: business.name, languages: ['en'] })],
+    ];
+    const expectCashRows = (text: string, renderer: string): void => {
+      const rows = contentRows(text);
+      const appliedRow = rows.find((row) => /\bcash\b/i.test(row) && !row.includes(tenderedLabel));
+      const tenderedRow = rows.find((row) => row.includes(tenderedLabel));
+      const changeRow = rows.find((row) => row.includes(changeLabel));
+      warn(appliedRow != null && digitsOf(appliedRow).includes('150'), `${renderer}: applied cash 150 keeps its own row`);
+      warn(tenderedRow != null && digitsOf(tenderedRow).includes('200'), `${renderer}: ${tenderedLabel} 200 row`);
+      warn(changeRow != null && digitsOf(changeRow).includes('50'), `${renderer}: ${changeLabel} 50 row`);
+      warn(
+        appliedRow != null && tenderedRow != null && changeRow != null
+          && rows.indexOf(appliedRow) < rows.indexOf(tenderedRow)
+          && rows.indexOf(tenderedRow) < rows.indexOf(changeRow),
+        `${renderer}: applied, cash-received, and change rows keep their order`,
+      );
+    };
+
+    const overpaidBill = {
+      ...bill,
+      bill_number: 'INV-PAY-150',
+      subtotal: 150,
+      discount_amount: 0,
+      tax_amount: 0,
+      delivery_charge: 0,
+      packaging_charge: 0,
+      total: 150,
+      payment_details: [{ method: 'cash', amount: 150, tendered_amount: 200, change_amount: 50 }],
+    };
+    for (const [renderer, text] of renderBill(overpaidBill)) {
+      expectCashRows(text, renderer);
+    }
+
+    const fePayments = fe.printDocument.buildBillPrintData(overpaidBill).bill.payments;
+    warn(
+      fePayments.length === 1 && fePayments[0].amount === 150 && fePayments[0].tendered === 200 && fePayments[0].change === 50,
+      'frontend normalizer preserves tendered/change',
+    );
+
+    const splitBill = {
+      ...overpaidBill,
+      bill_number: 'INV-PAY-SPLIT-150',
+      payment_details: [
+        { method: 'cash', amount: 60, tendered_amount: 80, change_amount: 20 },
+        { method: 'card', amount: 70, tendered_amount: 100, change_amount: 30 },
+        { method: 'cash', amount: 20, tendered_amount: 20, change_amount: 0 },
+      ],
+    };
+    for (const [renderer, text] of renderBill(splitBill)) {
+      const rows = contentRows(text);
+      const tenderedRows = rows.filter((row) => row.includes(tenderedLabel));
+      const changeRows = rows.filter((row) => row.includes(changeLabel));
+      const cashRows = rows.filter((row) => /\bcash\b/i.test(row) && !row.includes(tenderedLabel));
+      const cardRow = rows.find((row) => /\bcard\b/i.test(row));
+      warn(tenderedRows.length === 1 && digitsOf(tenderedRows[0]).includes('80'), `${renderer}: split payment keeps one cash-received row`);
+      warn(changeRows.length === 1 && digitsOf(changeRows[0]).includes('20'), `${renderer}: split payment keeps one change row`);
+      warn(
+        cashRows.length === 2 && digitsOf(cashRows[0]).includes('60') && digitsOf(cashRows[1]).includes('20'),
+        `${renderer}: split cash payments keep applied amounts and order`,
+      );
+      warn(cardRow != null && digitsOf(cardRow).includes('70'), `${renderer}: split non-cash payment keeps its applied amount`);
+      warn(
+        rows.indexOf(cashRows[0]) < rows.indexOf(tenderedRows[0])
+          && rows.indexOf(tenderedRows[0]) < rows.indexOf(changeRows[0])
+          && rows.indexOf(changeRows[0]) < rows.indexOf(cardRow!)
+          && rows.indexOf(cardRow!) < rows.indexOf(cashRows[1]),
+        `${renderer}: split cash, tender, change, card, and exact-cash rows keep payment order`,
+      );
+    }
+
+    const merchantFixture = validateMerchantTemplate(JSON.parse(fs.readFileSync(
+      path.join(__dirname, 'fixtures/merchant-templates/golden-receipt-v1.json'),
+      'utf8',
+    )));
+    if (!merchantFixture.ok) {
+      warn(false, `cash tender merchant fixture validates: ${merchantFixture.errors.join('; ')}`);
+    } else {
+      const context = buildBillPrintContext({ columns: 42, language: 'en', business });
+      const merchantDocument = applyMerchantTemplate(
+        buildBillDocument(buildBillPrintData(order, overpaidBill, business, false), context),
+        merchantFixture.payload,
+      );
+      const merchantText = escPosToText(buildEscPos(renderBillDocumentToClassicLines(merchantDocument, {
+        columns: 42,
+        language: 'en',
+        locale: context.locale,
+        currency: context.currency,
+        currencySymbol: context.currencySymbol,
+        trimDecimals: context.trimDecimals,
+        useUnicode: true,
+        arabicShaping: false,
+        cutMode: 'full',
+      }), true));
+      expectCashRows(merchantText, 'merchant/classic');
+    }
+
+    const exactBill = { ...overpaidBill, payment_details: [{ method: 'cash', amount: 150, tendered_amount: 150, change_amount: 0 }] };
+    for (const [renderer, text] of renderBill(exactBill)) {
+      const normalized = normalizeSemanticContent(text);
+      warn(
+        !normalized.includes(normalizeSemanticContent(tenderedLabel)) && !normalized.includes(normalizeSemanticContent(changeLabel)),
+        `${renderer}: exact cash prints no tendered/change row`,
+      );
+    }
+
+    // The shared fixture carries legacy payments without the optional fields.
+    for (const [renderer, text] of renderBill(bill)) {
+      const normalized = normalizeSemanticContent(text);
+      warn(
+        !normalized.includes(normalizeSemanticContent(tenderedLabel)) && !normalized.includes(normalizeSemanticContent(changeLabel)),
+        `${renderer}: legacy payments print no tendered/change row`,
+      );
     }
   }
 
