@@ -1,7 +1,14 @@
-name: Fork Windows Test Build
+name: Build and Release Windows Installer
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - origin
+      - main
+    tags:
+      - '3.*'
+      - 'v3.*'
 
 permissions:
   contents: write
@@ -12,8 +19,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -38,10 +43,10 @@ jobs:
             Write-Host "Windows signing credentials present."
           }
 
-      - name: Build Windows
+      - name: Build Windows Installer
         shell: bash
         run: |
-          npm run build:frontend && npm run build && npx electron-builder --win --publish never --config.npmRebuild=false -c.publish.channel="latest"
+          npm run build:frontend && npm run build && npx electron-builder --win --publish never --config.npmRebuild=false -c.publish.channel="latest" -w nsis
         env:
           CSC_LINK: ${{ secrets.WINDOWS_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTS_PASSWORD }}
@@ -49,13 +54,33 @@ jobs:
           GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
           GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
 
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flocafe-3.11.1-win-x64
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
+
       - name: Upload Windows executable to Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: windows-test-build-${{ github.run_number }}
-          name: Windows Test Build (${{ github.run_number }})
-          files: release/*.exe
+          tag_name: 3.11.1
+          name: 3.11.1
+          body: |
+            ## Flo Cafe 3.11.1
+
+            Flo Cafe Windows Installer v3.11.1 with Arabic localization support.
+
+            ### Downloads
+            - **Windows x64 Installer (.exe):** [flocafe-3.11.1-win-x64.exe](https://github.com/omrshrifmo/FloCafe2/releases/download/3.11.1/flocafe-3.11.1-win-x64.exe)
+          files: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
           draft: false
-          prerelease: true
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
